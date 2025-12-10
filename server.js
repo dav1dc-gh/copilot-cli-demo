@@ -19,13 +19,13 @@ app.get('/', (req, res) => {
 
 // Handle feedback submission
 app.post('/submit-feedback', (req, res) => {
-  const { name, email, rating, comments } = req.body;
+  const { name, email, rating, comments, recommend } = req.body;
   
   // Validate input
-  if (!name || !email || !rating || !comments) {
+  if (!name || !rating || !comments) {
     return res.status(400).json({ 
       success: false, 
-      message: 'All fields are required' 
+      message: 'Name, rating, and comments are required' 
     });
   }
 
@@ -44,6 +44,7 @@ app.post('/submit-feedback', (req, res) => {
     email,
     rating: ratingNum,
     comments,
+    recommend: recommend || null,
     timestamp: new Date().toISOString()
   };
   
