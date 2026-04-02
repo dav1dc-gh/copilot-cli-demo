@@ -9,6 +9,7 @@ document.getElementById('feedbackForm').addEventListener('submit', async (e) => 
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         rating: document.getElementById('rating').value,
+        hearAboutUs: document.getElementById('hearAboutUs').value,
         comments: document.getElementById('comments').value
     };
     

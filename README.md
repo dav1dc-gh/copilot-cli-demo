@@ -8,9 +8,11 @@ A simple Node.js-based feedback form using Express.js.
 ### Features
 
 - Clean and responsive UI
-- Form validation
+- Form validation (client and server-side)
 - Real-time feedback submission
-- In-memory storage of feedback entries
+- **SQLite persistence** — feedback survives server restarts
+- Rate limiting on submissions (10 per 15 minutes per IP)
+- Input length validation
 - View all submitted feedback via API endpoint
 
 ### Installation
@@ -34,8 +36,11 @@ The application will start on `http://localhost:3000`
    - Your name
    - Your email
    - A rating (1-5)
+   - How you heard about us
    - Your comments
 3. Click "Submit Feedback"
+
+> **Note:** Feedback is stored in a local SQLite database (`feedback.db`), which is automatically created on first run. Data persists across server restarts.
 
 ### API Endpoints
 
@@ -48,10 +53,14 @@ The application will start on `http://localhost:3000`
 ```
 .
 ├── server.js           # Express server and API endpoints
+├── db.js               # SQLite database module
 ├── public/
 │   ├── index.html      # Feedback form HTML
 │   ├── styles.css      # Styling
 │   └── script.js       # Client-side JavaScript
+├── test/
+│   ├── db.test.js      # Database module tests
+│   └── server.test.js  # API integration tests
 ├── package.json        # Project dependencies
-└── README.md          # This file
+└── README.md           # This file
 ```
