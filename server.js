@@ -19,13 +19,21 @@ app.get('/', (req, res) => {
 
 // Handle feedback submission
 app.post('/submit-feedback', (req, res) => {
-  const { name, email, rating, comments } = req.body;
+  const { name, email, rating, hearAboutUs, comments } = req.body;
   
   // Validate input
-  if (!name || !email || !rating || !comments) {
+  if (!name || !email || !rating || !hearAboutUs || !comments) {
     return res.status(400).json({ 
       success: false, 
       message: 'All fields are required' 
+    });
+  }
+
+  const validSources = ['search_engine', 'social_media', 'friend_family', 'advertisement', 'blog_article', 'other'];
+  if (!validSources.includes(hearAboutUs)) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Invalid selection for "How did you hear about us?"' 
     });
   }
 
@@ -43,6 +51,7 @@ app.post('/submit-feedback', (req, res) => {
     name,
     email,
     rating: ratingNum,
+    hearAboutUs,
     comments,
     timestamp: new Date().toISOString()
   };
