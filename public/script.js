@@ -9,7 +9,8 @@ document.getElementById('feedbackForm').addEventListener('submit', async (e) => 
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         rating: document.getElementById('rating').value,
-        comments: document.getElementById('comments').value
+        comments: document.getElementById('comments').value,
+        recommend: document.getElementById('recommend').value
     };
     
     // Disable submit button
