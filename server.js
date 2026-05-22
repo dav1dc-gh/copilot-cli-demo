@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
-const { insertFeedback, getAllFeedback } = require('./db');
+const { insertFeedback, getAllFeedback, getFeedbackCount, close: closeDb } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -50,7 +50,13 @@ function basicAuth(req, res, next) {
   }
 
   const credentials = Buffer.from(authHeader.slice(6), 'base64').toString();
-  const [user, pass] = credentials.split(':');
+  const separatorIndex = credentials.indexOf(':');
+  if (separatorIndex === -1) {
+    res.set('WWW-Authenticate', 'Basic realm="Feedback Admin"');
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+  const user = credentials.slice(0, separatorIndex);
+  const pass = credentials.slice(separatorIndex + 1);
 
   const expectedUser = process.env.AUTH_USER;
   const expectedPass = process.env.AUTH_PASS;
@@ -115,6 +121,9 @@ app.post('/submit-feedback', submitLimiter, (req, res) => {
   if (email.length > 254) {
     return res.status(400).json({ success: false, message: 'Email must be 254 characters or less' });
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ success: false, message: 'Invalid email format' });
+  }
   if (comments.length > 2000) {
     return res.status(400).json({ success: false, message: 'Comments must be 2000 characters or less' });
   }
@@ -144,7 +153,7 @@ app.post('/submit-feedback', submitLimiter, (req, res) => {
     timestamp: new Date().toISOString()
   });
   
-  console.log('New feedback received:', feedback);
+  console.log('New feedback received: id=%d, rating=%d, timestamp=%s', feedback.id, feedback.rating, feedback.timestamp);
   
   res.json({ 
     success: true, 
@@ -153,17 +162,37 @@ app.post('/submit-feedback', submitLimiter, (req, res) => {
   });
 });
 
-// Get all feedback (protected endpoint)
+// Get all feedback (protected endpoint with pagination)
 app.get('/feedback', authLimiter, basicAuth, (req, res) => {
-  const feedbackList = getAllFeedback();
+  const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+  const feedbackList = getAllFeedback({ limit, offset });
+  const total = getFeedbackCount();
   res.json({ 
     success: true, 
+    total,
+    limit,
+    offset,
     count: feedbackList.length,
     feedback: feedbackList 
   });
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Feedback form server running on http://localhost:${PORT}`);
 });
+
+// Graceful shutdown
+function shutdown() {
+  console.log('Shutting down gracefully...');
+  server.close(() => {
+    closeDb();
+    process.exit(0);
+  });
+  // Force exit after 5s if connections don't close
+  setTimeout(() => process.exit(1), 5000);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
