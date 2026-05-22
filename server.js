@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const { insertFeedback, getAllFeedback } = require('./db');
@@ -9,6 +10,17 @@ const PORT = process.env.PORT || 3000;
 
 // Security headers
 app.use(helmet());
+
+// Redirect HTTP to HTTPS in production (when behind a TLS-terminating proxy)
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] !== 'https') {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+  app.set('trust proxy', 1);
+}
 
 // Middleware
 app.use(express.json({ limit: '10kb' }));
@@ -20,6 +32,13 @@ const submitLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // max 10 submissions per window per IP
   message: { success: false, message: 'Too many submissions. Please try again later.' }
+});
+
+// Rate limiter for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // max 5 auth attempts per window per IP
+  message: { success: false, message: 'Too many authentication attempts. Please try again later.' }
 });
 
 // Basic auth middleware for protected endpoints
@@ -40,7 +59,13 @@ function basicAuth(req, res, next) {
     return res.status(503).json({ success: false, message: 'Auth not configured on server' });
   }
 
-  if (user === expectedUser && pass === expectedPass) {
+  // Timing-safe comparison to prevent timing attacks
+  const userMatch = user.length === expectedUser.length &&
+    crypto.timingSafeEqual(Buffer.from(user), Buffer.from(expectedUser));
+  const passMatch = pass.length === expectedPass.length &&
+    crypto.timingSafeEqual(Buffer.from(pass), Buffer.from(expectedPass));
+
+  if (userMatch && passMatch) {
     return next();
   }
 
@@ -129,7 +154,7 @@ app.post('/submit-feedback', submitLimiter, (req, res) => {
 });
 
 // Get all feedback (protected endpoint)
-app.get('/feedback', basicAuth, (req, res) => {
+app.get('/feedback', authLimiter, basicAuth, (req, res) => {
   const feedbackList = getAllFeedback();
   res.json({ 
     success: true, 
